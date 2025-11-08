@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Bird Circle Nice Clouds</title>
+<style>
+  body { margin:0; overflow:hidden; background:#87CEEB; font-family:sans-serif; }
+  canvas { display:block; }
+  #restartBtn {
+    position:absolute;
+    padding:15px 30px;
+    font-size:24px;
+    display:none;
+    cursor:pointer;
+    z-index:10;
+    left:50%;
+    top:60%;
+    transform:translate(-50%, -50%);
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<button id="restartBtn">Restart</button>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const restartBtn = document.getElementById('restartBtn');
+
+function resizeCanvas(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+let bird={x:150, y:canvas.height/2, radius:30, dy:0};
+const gravity=0.6, jump=-10;
+let pipes=[], pipeWidth=80, pipeGap=250, frame=0, score=0;
+let gameOver=false, started=false;
+
+function pipeSpeed(){ return 4 + Math.floor(score/5); }
+
+// Tạo mây đẹp: hình tròn chồng nhẹ lên nhau
+let clouds=[];
+function createClouds(){
+  clouds=[];
+  const cloudCount=8;
+  for(let i=0;i<cloudCount;i++){
+    const x=Math.random()*canvas.width;
+    const y=Math.random()*canvas.height/2;
+    const circles=[];
+    const parts=4+Math.floor(Math.random()*3); // 4–6 tròn
+    let baseX=0;
+    for(let j=0;j<parts;j++){
+      const radius=20+Math.random()*15; // 20–35
+      circles.push({
+        offsetX: baseX,
+        offsetY: Math.random()*10 - 5, // ±5 px
+        radius: radius
+      });
+      baseX += radius*0.8; // chồng nhẹ
+    }
+    clouds.push({x,y,circles});
+  }
+}
+createClouds();
+
+function flap(){ if(!gameOver){ bird.dy=jump; started=true; } }
+document.addEventListener('keydown', e=>{ if(e.key===' ') flap(); });
+canvas.addEventListener('click', flap);
+canvas.addEventListener('touchstart', flap);
+
+function createPipe(){
+  const minHeight=50;
+  const maxHeight=canvas.height - pipeGap - minHeight;
+  const height=Math.floor(Math.random()*(maxHeight-minHeight+1))+minHeight;
+  pipes.push({x:canvas.width, y:0, height:height});
+  pipes.push({x:canvas.width, y:height+pipeGap, height:canvas.height-(height+pipeGap)});
+}
+
+function update(){
+  if(gameOver||!started) return;
+  frame++;
+  bird.dy+=gravity; bird.y+=bird.dy;
+  if(frame%100===0) createPipe();
+
+  for(let i=0;i<pipes.length;i++){
+    pipes[i].x -= pipeSpeed();
+    if(bird.x+bird.radius>pipes[i].x && bird.x-bird.radius<pipes[i].x+pipeWidth &&
+       bird.y+bird.radius>pipes[i].y && bird.y-bird.radius<pipes[i].y+pipes[i].height) endGame();
+    if(pipes[i].x + pipeWidth === bird.x) score++;
+  }
+  if(bird.y+bird.radius>canvas.height || bird.y-bird.radius<0) endGame();
+  pipes = pipes.filter(p=>p.x+pipeWidth>0);
+}
+
+function drawBird(){
+  ctx.fillStyle='yellow';
+  ctx.beginPath(); ctx.arc(bird.x,bird.y,bird.radius,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='orange';
+  ctx.beginPath();
+  ctx.moveTo(bird.x+bird.radius,bird.y-7);
+  ctx.lineTo(bird.x+bird.radius+18,bird.y);
+  ctx.lineTo(bird.x+bird.radius,bird.y+7);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='black';
+  ctx.beginPath();
+  ctx.arc(bird.x+bird.radius-2,bird.y-7,4,0,Math.PI*2); ctx.fill();
+}
+
+function drawClouds(){
+  ctx.fillStyle='white';
+  clouds.forEach(cloud=>{
+    cloud.circles.forEach(c=>{
+      ctx.beginPath();
+      ctx.arc(cloud.x+c.offsetX, cloud.y+c.offsetY, c.radius, 0, Math.PI*2);
+      ctx.fill();
+    });
+  });
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawClouds();
+  drawBird();
+  ctx.fillStyle='green';
+  pipes.forEach(p=>ctx.fillRect(p.x,p.y,pipeWidth,p.height));
+  ctx.fillStyle='black';
+  ctx.font='32px Arial';
+  ctx.textAlign='left';
+  ctx.fillText("Score: "+score,20,50);
+  if(gameOver){
+    ctx.fillStyle='red';
+    ctx.font='64px Arial';
+    ctx.textAlign='center';
+    ctx.fillText("GAME OVER",canvas.width/2,canvas.height/2-50);
+  }
+  if(!started && !gameOver){
+    ctx.fillStyle='white';
+    ctx.font='36px Arial';
+    ctx.textAlign='center';
+    ctx.fillText("Tap hoặc Space để bắt đầu",canvas.width/2,canvas.height/2);
+  }
+}
+
+function endGame(){ gameOver=true; restartBtn.style.display='block'; }
+function resetGame(){ bird.y=canvas.height/2; bird.dy=0; pipes=[]; score=0; frame=0; gameOver=false; started=false; restartBtn.style.display='none'; }
+restartBtn.addEventListener('click', resetGame);
+
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
